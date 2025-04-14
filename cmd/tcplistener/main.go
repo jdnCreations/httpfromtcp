@@ -2,49 +2,16 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"strings"
+
+	"github.com/jdnCreations/httpfromtcp/internal/request"
 )
 
 func check(e error) {
 	if e != nil {
 		log.Fatal(e)
 	}
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	lineCh := make(chan string)
-	go func() {
-		defer f.Close()
-		defer close(lineCh)
-		bytesToRead := make([]byte, 8)
-		currentLine := ""
-		
-		for { 
-			bytesRead, err := f.Read(bytesToRead) 
-			if err == io.EOF {
-				lineCh <- currentLine
-				break	
-			}
-		
-			splitData := strings.Split(string(bytesToRead[:bytesRead]), "\n")
-			for i, part := range splitData {
-				if i < len(splitData) - 1 {
-					if i == 0 {
-						lineCh <- currentLine + part
-						currentLine = ""
-					} else {
-						lineCh <- part
-					}
-				} else {
-					currentLine += part
-				}
-			}
-		}
-	}()
-	return lineCh
 }
 
 func main() {
@@ -55,13 +22,16 @@ func main() {
     conn, err := listener.Accept()
     check(err)
     
-    lines := getLinesChannel(conn)
-    fmt.Println("connection accepted")
-    for line := range lines {
-      fmt.Printf("%s\n", line)
-    }
-    
+    req, err := request.RequestFromReader(conn)
+    if err != nil {
+			log.Fatal(err.Error())
+		}	
+
+		fmt.Println("Request line:")
+		fmt.Println("- Method:", req.RequestLine.Method)
+		fmt.Println("- Target:", req.RequestLine.RequestTarget)
+		fmt.Println("- Version:", req.RequestLine.HttpVersion)
+
     conn.Close()
-    fmt.Println("Connection closed")
   }
 }
