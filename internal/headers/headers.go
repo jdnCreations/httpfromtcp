@@ -11,6 +11,13 @@ var validHeaderKeyPattern = regexp.MustCompile("^[A-Za-z0-9!#$%&'*+\\-.^_`|~]+$"
 
 type Headers map[string]string
 
+func (headers Headers) Get(key string) string {
+  if val, ok := headers[strings.ToLower(key)]; ok {
+    return val
+  }
+  return "" 
+}
+
 func NewHeaders() (headers Headers) {
 	return make(Headers)
 }

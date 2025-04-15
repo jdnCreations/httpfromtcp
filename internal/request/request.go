@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/jdnCreations/httpfromtcp/internal/headers"
@@ -15,11 +16,13 @@ const (
 	requestStateInitialized requestState = iota // 0
 	requestStateDone // 1
 	requestStateParsingHeaders
+	requestParsingBody
 )
 
 type Request struct {
 	RequestLine RequestLine
 	Headers headers.Headers 
+	Body []byte
 	state requestState // to track parsing state
 }
 
@@ -52,10 +55,35 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
+			r.state = requestParsingBody 
+		}
+		return n, nil	
+
+	case requestParsingBody:
+		contentLengthStr := r.Headers.Get("content-length")
+		if contentLengthStr == "" {
+			r.state = requestStateDone
+			return 0, nil
+		}
+
+		contentLength, err := strconv.Atoi(contentLengthStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid Content-Length: %w", err)
+		}
+
+		r.Body = append(r.Body, data...)
+
+		if len(r.Body) > contentLength {
+			return 0, errors.New("error: body is greater than Content-Length header")
+		}
+
+		if len(r.Body) == contentLength {
 			r.state = requestStateDone
 		}
-		return n, nil
-	
+		fmt.Println("Consumed entire length of data")
+		return len(data), nil
+
+
 	case requestStateDone:
 		return 0, errors.New("error: trying to read data in a done state")
 	
