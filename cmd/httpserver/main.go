@@ -47,7 +47,24 @@ func handler(w *response.Writer, req *request.Request) {
 		handlerhttpbin(w, req)	
 		return
 	}
+	if req.RequestLine.RequestTarget == "/video" {
+		handlerVideo(w, req)
+		return
+	}
 	handler200(w)
+}
+
+func handlerVideo(w *response.Writer, req *request.Request) {
+	data, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		log.Fatalf("could not load video")	
+		return
+	}
+	w.WriteStatusLine(response.StatusOK)
+	h := headers.NewHeaders()
+	h.Add("Content-Type", "video/mp4")
+	w.WriteHeaders(h)
+	w.WriteBody(data)
 }
 
 func handlerhttpbin(w *response.Writer, req *request.Request) {
