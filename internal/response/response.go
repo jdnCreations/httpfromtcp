@@ -8,14 +8,6 @@ import (
 	"github.com/jdnCreations/httpfromtcp/internal/headers"
 )
 
-type StatusCode int
-
-const (
-	StatusOK StatusCode = 200
-	StatusBadRequest StatusCode = 400
-	StatusInternalServerError StatusCode = 500
-)
-
 func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	for header := range headers {
 		value := headers.Get(header)
@@ -32,13 +24,7 @@ func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	return nil
 }
 
-func GetDefaultHeaders(contentLen int) headers.Headers {
-	h := headers.NewHeaders()
-	h.Parse([]byte("Content-Length: " + strconv.Itoa(contentLen) + "\r\n"))
-	h.Parse([]byte("Connection: close\r\n"))
-	h.Parse([]byte("Content-Type: text/plain\r\n"))
-	return h
-}
+
 
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	switch statusCode {

@@ -22,6 +22,11 @@ func NewHeaders() (headers Headers) {
 	return make(Headers)
 }
 
+func (headers Headers) Override(key, value string) {
+	key = strings.ToLower(key)
+	headers[key] = value
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	dataToParse := string(data)
 	if len(dataToParse) >= 2 && dataToParse[0] == '\r' && dataToParse[1] == '\n' {
