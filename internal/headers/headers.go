@@ -27,6 +27,16 @@ func (headers Headers) Override(key, value string) {
 	headers[key] = value
 }
 
+func (headers Headers) Remove(key string) {
+	key = strings.ToLower(key)
+	delete(headers, key)
+}
+
+func (headers Headers) Add(key, value string) {
+	key = strings.ToLower(key)
+	headers[key] = value
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	dataToParse := string(data)
 	if len(dataToParse) >= 2 && dataToParse[0] == '\r' && dataToParse[1] == '\n' {

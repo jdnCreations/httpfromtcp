@@ -2,29 +2,24 @@ package response
 
 import (
 	"io"
-	"log"
 	"strconv"
 
 	"github.com/jdnCreations/httpfromtcp/internal/headers"
 )
 
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
-	for header := range headers {
-		value := headers.Get(header)
-		log.Printf("Header: %s, Value: %s", header, value)
-		_, err := w.Write([]byte(header + ": " + headers.Get(header) + "\r\n"))
-		if err != nil {
-			return err
-		}
-	}
-	_, err := w.Write([]byte("\r\n"))
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	_, err := w.writer.Write([]byte("X-Content-Sha256" + ": " + h.Get("x-content-sha256") + "\r\n"))
 	if err != nil {
 		return err
 	}
-	return nil
+
+	_, err = w.writer.Write([]byte("X-Content-Length" + ": " + h.Get("x-content-length") + "\r\n"))
+	if err != nil {
+		return err
+	}
+	_, err = w.writer.Write([]byte("\r\n"))
+	return err 
 }
-
-
 
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 	switch statusCode {

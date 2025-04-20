@@ -1,11 +1,17 @@
 package main
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"github.com/jdnCreations/httpfromtcp/internal/headers"
 	"github.com/jdnCreations/httpfromtcp/internal/request"
 	"github.com/jdnCreations/httpfromtcp/internal/response"
 	"github.com/jdnCreations/httpfromtcp/internal/server"
@@ -29,18 +35,68 @@ func main() {
 
 func handler(w *response.Writer, req *request.Request) {
 	if req.RequestLine.RequestTarget == "/yourproblem" {
-		handler400(w, req)	
+		handler400(w)	
 		return
 	}
 	if req.RequestLine.RequestTarget == "/myproblem" {
-		handler500(w, req)	
+		handler500(w)	
 		return
 	}
-	handler200(w, req)
-	return
+	if strings.HasPrefix(req.RequestLine.RequestTarget, 
+	"/httpbin") {
+		handlerhttpbin(w, req)	
+		return
+	}
+	handler200(w)
 }
 
-func handler400(w *response.Writer, req *request.Request) {
+func handlerhttpbin(w *response.Writer, req *request.Request) {
+	w.WriteStatusLine(response.StatusOK)
+
+	reqUrl := fmt.Sprintf("https://httpbin.org/%s", strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin"))
+	resp, err := http.Get(reqUrl)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+
+	h := response.GetDefaultHeaders(0)
+	h.Remove("Content-Length")
+	h.Add("Transfer-Encoding", "chunked")
+	h.Add("Trailer", "X-Content-Sha256, X-Content-Length")
+	w.WriteHeaders(h)
+
+	var responseBody []byte
+
+	buffer := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Println("Error reading response body:", err)
+			return
+		}
+		chunk := buffer[:n]
+		responseBody = append(responseBody, chunk...)
+		w.WriteChunkedBody(chunk)
+	}
+	_, err = w.WriteChunkedBodyDone()
+	sha := sha256.Sum256(responseBody)
+	t := headers.NewHeaders()
+
+	t.Add("X-Content-Sha256", fmt.Sprintf("%x", sha))
+	t.Add("X-Content-Length", fmt.Sprintf("%d", len(responseBody)))
+	w.WriteTrailers(t)
+
+	if err != nil {
+		fmt.Printf("Error writing final chunk: %v\n", err)
+	}
+}
+
+func handler400(w *response.Writer) {
 	w.WriteStatusLine(response.StatusBadRequest)
 	body := []byte(`
 	<html>
@@ -56,10 +112,9 @@ func handler400(w *response.Writer, req *request.Request) {
 	h.Override("Content-Type", "text/html")
 	w.WriteHeaders(h)
 	w.WriteBody(body)
-	return
 }
 
-func handler500(w *response.Writer, req *request.Request) {
+func handler500(w *response.Writer) {
 	w.WriteStatusLine(response.StatusInternalServerError)
 	body := []byte(`
 	<html>
@@ -75,10 +130,9 @@ func handler500(w *response.Writer, req *request.Request) {
 	h.Override("Content-Type", "text/html")
 	w.WriteHeaders(h)
 	w.WriteBody(body)
-	return
 }
 
-func handler200(w *response.Writer, req *request.Request) {
+func handler200(w *response.Writer) {
 	w.WriteStatusLine(response.StatusOK)
 	body := []byte(`
 	<html>
@@ -94,5 +148,4 @@ func handler200(w *response.Writer, req *request.Request) {
 	h.Override("Content-Type", "text/html")
 	w.WriteHeaders(h)
 	w.WriteBody(body)
-	return
 }
